@@ -1,8 +1,9 @@
-import { useState } from 'react'
-
+import { useEffect, useState } from 'react'
 import '../styles/tasklist.scss'
 
 import { FiTrash, FiCheckSquare } from 'react-icons/fi'
+import { api } from '../services/api';
+
 
 interface Task {
   id: number;
@@ -10,20 +11,53 @@ interface Task {
   isComplete: boolean;
 }
 
+
 export function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  
+  useEffect(() => {
+    api.get('/tasks').then(response => setTasks(response.data.tasks))
+  }, []);
 
-  function handleCreateNewTask() {
-    // Crie uma nova task com um id random, não permita criar caso o título seja vazio.
+  async function handleCreateNewTask() {
+     //Crie uma nova task com um id random, não permita criar caso o título seja vazio.
+    if(newTaskTitle === ''){
+      alert('Preencha o campo "Adicionar Novo Todo"')
+    } else {
+      const response = await api.post('/tasks', {
+        title: newTaskTitle,
+        isComplete: false
+      })
+
+      setTasks([
+        ...tasks,
+        {
+          id: response.data.task.id,
+          title: response.data.task.title,
+          isComplete: false
+        }
+      ])
+    }
+    setNewTaskTitle('');
   }
 
-  function handleToggleTaskCompletion(id: number) {
+  async function handleToggleTaskCompletion(e: boolean, key: number) {
     // Altere entre `true` ou `false` o campo `isComplete` de uma task com dado ID
+    const response = await api.patch('/tasks', {
+        id: key,
+        isComplete: e
+    })
+    setTasks(response.data.tasks)
   }
 
-  function handleRemoveTask(id: number) {
-    // Remova uma task da listagem pelo ID
+  async function handleRemoveTask(key: number) {
+    const response = await api.delete('/tasks', {
+      data: {
+        id: key
+      }
+    })
+    setTasks(response.data.tasks)
   }
 
   return (
@@ -35,9 +69,10 @@ export function TaskList() {
           <input 
             type="text" 
             placeholder="Adicionar novo todo" 
-            onChange={(e) => setNewTaskTitle(e.target.value)}
             value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
           />
+
           <button type="submit" data-testid="add-task-button" onClick={handleCreateNewTask}>
             <FiCheckSquare size={16} color="#fff"/>
           </button>
@@ -54,14 +89,14 @@ export function TaskList() {
                     type="checkbox"
                     readOnly
                     checked={task.isComplete}
-                    onClick={() => handleToggleTaskCompletion(task.id)}
+                    onChange={(e) => handleToggleTaskCompletion(e.target.checked, task.id)}
                   />
                   <span className="checkmark"></span>
                 </label>
                 <p>{task.title}</p>
               </div>
 
-              <button type="button" data-testid="remove-task-button" onClick={() => handleRemoveTask(task.id)}>
+              <button type="button" data-testid="remove-task-button" onClick={(e) => handleRemoveTask(task.id)}>
                 <FiTrash size={16}/>
               </button>
             </li>
